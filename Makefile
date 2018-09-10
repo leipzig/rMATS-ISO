@@ -4,15 +4,12 @@ rMATSEM_dir  = ./rmats-EM
 
 
 # dependencies
-lr2rmats  = lr2rMATS
+#lr2rmats  = lr2rMATS this is just a bunch of deps in conda
 IsoModule = ISOModule
 rMATSEM   = rMATSEM
 
 
-all:		$(lr2rmats) $(IsoModule) $(rMATSEM)
-
-${lr2rmats}:
-	cd ${lr2rmats_dir} && make || exit 255
+all:	 $(IsoModule) $(rMATSEM)
 
 ${IsoModule}:
 	cd ${IsoModule_dir} && make || exit 255
