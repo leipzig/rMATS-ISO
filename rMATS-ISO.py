@@ -214,8 +214,7 @@ def ISO_module(para, cur_dir):
 
     utils.exec_cmd(sys.stderr, 'IsoModule', 'mkdir {}/ISO_module 2> /dev/null'.format(para.out_dir))
     op = ' '.join([para.module_novel_sj, para.module_use_un_pair, para.module_use_multi, para.module_recursive])
-    cmd = '{}/IsoModule/IsoModule {} {} {} -i {} -T {} -c {} -v {} -e {} -C {} -o {}/ISO_module'.format(cur_dir,
-                                                                                                        para.in_gtf,
+    cmd = 'IsoModule {} {} {} -i {} -T {} -c {} -v {} -e {} -C {} -o {}/ISO_module'.format(             para.in_gtf,
                                                                                                         para.in_bam_str,
                                                                                                         op,
                                                                                                         para.module_intron_len,
