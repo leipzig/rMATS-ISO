@@ -66,17 +66,17 @@ BUILT_PROGRAMS = \
 	htsfile \
 	tabix
 
-BUILT_TEST_PROGRAMS = \
-	test/hts_endian \
-	test/fieldarith \
-	test/hfile \
-	test/sam \
-	test/test_bgzf \
-	test/test-regidx \
-	test/test_view \
-	test/test-vcf-api \
-	test/test-vcf-sweep \
-	test/test-bcf-sr
+# BUILT_TEST_PROGRAMS = \
+# 	test/hts_endian \
+# 	test/fieldarith \
+# 	test/hfile \
+# 	test/sam \
+# 	test/test_bgzf \
+# 	test/test-regidx \
+# 	test/test_view \
+# 	test/test-vcf-api \
+# 	test/test-vcf-sweep \
+# 	test/test-bcf-sr
 
 BUILT_THRASH_PROGRAMS = \
 	test/thrash_threads1 \
@@ -86,7 +86,7 @@ BUILT_THRASH_PROGRAMS = \
 	test/thrash_threads5 \
 	test/thrash_threads6
 
-all: lib-static lib-shared $(BUILT_PROGRAMS) plugins $(BUILT_TEST_PROGRAMS)
+all: lib-static lib-shared $(BUILT_PROGRAMS) plugins #$(BUILT_TEST_PROGRAMS)
 
 HTSPREFIX =
 include htslib_vars.mk
