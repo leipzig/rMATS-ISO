@@ -1,6 +1,6 @@
 # Makefile rules useful for third-party code using htslib's public API.
 #
-#    Copyright (C) 2013-2015 Genome Research Ltd.
+#    Copyright (C) 2013-2016 Genome Research Ltd.
 #
 #    Author: John Marshall <jm18@sanger.ac.uk>
 #
@@ -53,6 +53,7 @@ HTSLIB_PUBLIC_HEADERS = \
 	$(HTSDIR)/htslib/hfile.h \
 	$(HTSDIR)/htslib/hts.h \
 	$(HTSDIR)/htslib/hts_defs.h \
+	$(HTSDIR)/htslib/hts_endian.h \
 	$(HTSDIR)/htslib/kbitset.h \
 	$(HTSDIR)/htslib/kfunc.h \
 	$(HTSDIR)/htslib/khash.h \
@@ -73,20 +74,25 @@ HTSLIB_PUBLIC_HEADERS = \
 
 HTSLIB_ALL = \
 	$(HTSLIB_PUBLIC_HEADERS) \
+	$(HTSDIR)/bcf_sr_sort.c \
+	$(HTSDIR)/bcf_sr_sort.h \
 	$(HTSDIR)/bgzf.c \
 	$(HTSDIR)/config.h \
 	$(HTSDIR)/errmod.c \
 	$(HTSDIR)/faidx.c \
 	$(HTSDIR)/hfile_internal.h \
 	$(HTSDIR)/hfile.c \
+	$(HTSDIR)/hfile_gcs.c \
 	$(HTSDIR)/hfile_libcurl.c \
 	$(HTSDIR)/hfile_net.c \
+	$(HTSDIR)/hfile_s3.c \
 	$(HTSDIR)/hts.c \
 	$(HTSDIR)/hts_internal.h \
 	$(HTSDIR)/kfunc.c \
 	$(HTSDIR)/knetfile.c \
 	$(HTSDIR)/kstring.c \
 	$(HTSDIR)/md5.c \
+	$(HTSDIR)/multipart.c \
 	$(HTSDIR)/plugin.c \
 	$(HTSDIR)/probaln.c \
 	$(HTSDIR)/realn.c \
@@ -94,7 +100,9 @@ HTSLIB_ALL = \
 	$(HTSDIR)/sam.c \
 	$(HTSDIR)/synced_bcf_reader.c \
 	$(HTSDIR)/tbx.c \
+	$(HTSDIR)/textutils.c \
 	$(HTSDIR)/thread_pool.c \
+	$(HTSDIR)/thread_pool_internal.h \
 	$(HTSDIR)/vcf.c \
 	$(HTSDIR)/vcf_sweep.c \
 	$(HTSDIR)/vcfutils.c \
@@ -153,6 +161,12 @@ $(HTSDIR)/htsfile: $(HTSDIR)/htsfile.c $(HTSLIB_PUBLIC_HEADERS)
 
 $(HTSDIR)/tabix: $(HTSDIR)/tabix.c $(HTSLIB_PUBLIC_HEADERS)
 	+cd $(HTSDIR) && $(MAKE) tabix
+
+$(HTSDIR)/htslib_static.mk: $(HTSDIR)/htslib.pc.tmp
+	+cd $(HTSDIR) && $(MAKE) htslib_static.mk
+
+$(HTSDIR)/htslib.pc.tmp:
+	+cd $(HTSDIR) && $(MAKE) htslib.pc.tmp
 
 # Rules for phony targets.  You may wish to have your corresponding phony
 # targets invoke these in addition to their own recipes:

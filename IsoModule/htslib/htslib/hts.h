@@ -58,21 +58,64 @@ typedef struct __kstring_t {
 #endif
 
 /**
- * hts_expand()  - expands memory block pointed to by $ptr;
- * hts_expand0()   the latter sets the newly allocated part to 0.
+ * @hideinitializer
+ * Macro to expand a dynamic array of a given type
  *
- * @param n     requested number of elements of type type_t
- * @param m     size of memory allocated
+ * @param         type_t The type of the array elements
+ * @param[in]     n      Requested number of elements of type type_t
+ * @param[in,out] m      Size of memory allocated
+ * @param[in,out] ptr    Pointer to the array
+ *
+ * @discussion
+ * The array *ptr will be expanded if necessary so that it can hold @p n
+ * or more elements.  If the array is expanded then the new size will be
+ * written to @p m and the value in @ptr may change.
+ *
+ * It must be possible to take the address of @p ptr and @p m must be usable
+ * as an lvalue.
+ *
+ * @bug
+ * If the memory allocation fails, this will call exit(1).  This is
+ * not ideal behaviour in a library.
  */
-#define hts_expand(type_t, n, m, ptr) if ((n) > (m)) { \
-        (m) = (n); kroundup32(m); \
-        (ptr) = (type_t*)realloc((ptr), (m) * sizeof(type_t)); \
-    }
-#define hts_expand0(type_t, n, m, ptr) if ((n) > (m)) { \
-        int t = (m); (m) = (n); kroundup32(m); \
-        (ptr) = (type_t*)realloc((ptr), (m) * sizeof(type_t)); \
-        memset(((type_t*)ptr)+t,0,sizeof(type_t)*((m)-t)); \
-    }
+#define hts_expand(type_t, n, m, ptr) do {                              \
+        if ((n) > (m)) {                                                \
+            size_t hts_realloc_or_die(size_t, size_t, size_t, size_t,   \
+                                      int, void **, const char *);      \
+            (m) = hts_realloc_or_die((n) >= 1 ? (n) : 1, (m), sizeof(m), \
+                                     sizeof(type_t),  0,                \
+                                     (void **)&(ptr), __func__);        \
+        }                                                               \
+    } while (0)
+
+/**
+ * @hideinitializer
+ * Macro to expand a dynamic array, zeroing any newly-allocated memory
+ *
+ * @param         type_t The type of the array elements
+ * @param[in]     n      Requested number of elements of type type_t
+ * @param[in,out] m      Size of memory allocated
+ * @param[in,out] ptr    Pointer to the array
+ *
+ * @discussion
+ * As for hts_expand(), except the bytes that make up the array elements
+ * between the old and new values of @p m are set to zero using memset().
+ *
+ * @bug
+ * If the memory allocation fails, this will call exit(1).  This is
+ * not ideal behaviour in a library.
+ */
+
+
+#define hts_expand0(type_t, n, m, ptr) do {                             \
+        if ((n) > (m)) {                                                \
+            size_t hts_realloc_or_die(size_t, size_t, size_t, size_t,   \
+                                      int, void **, const char *);      \
+            (m) = hts_realloc_or_die((n) >= 1 ? (n) : 1, (m), sizeof(m), \
+                                     sizeof(type_t), 1,                 \
+                                     (void **)&(ptr), __func__);        \
+        }                                                               \
+    } while (0)
 
 /************
  * File I/O *
@@ -94,6 +137,7 @@ enum htsExactFormat {
     unknown_format,
     binary_format, text_format,
     sam, bam, bai, cram, crai, vcf, bcf, csi, gzi, tbi, bed,
+    json,
     format_maximum = 32767
 };
 
@@ -119,7 +163,7 @@ typedef struct htsFormat {
 //  - fp is used directly in samtools (up to and including current develop)
 //  - line is used directly in bcftools (up to and including current develop)
 typedef struct {
-    uint32_t is_bin:1, is_write:1, is_be:1, is_cram:1, dummy:28;
+    uint32_t is_bin:1, is_write:1, is_be:1, is_cram:1, is_bgzf:1, dummy:27;
     int64_t lineno;
     kstring_t line;
     char *fn, *fn_aux;
@@ -127,7 +171,6 @@ typedef struct {
         BGZF *bgzf;
         struct cram_fd *cram;
         struct hFILE *hfile;
-        void *voidp;
     } fp;
     htsFormat format;
 } htsFile;
@@ -184,6 +227,7 @@ enum hts_fmt_option {
     CRAM_OPT_USE_RANS,
     CRAM_OPT_REQUIRED_FIELDS,
     CRAM_OPT_LOSSY_NAMES,
+    CRAM_OPT_BASES_PER_SLICE,
 
     // General purpose
     HTS_OPT_COMPRESSION_LEVEL = 100,
@@ -524,8 +568,33 @@ hts_idx_t *hts_idx_load(const char *fn, int fmt);
 */
 hts_idx_t *hts_idx_load2(const char *fn, const char *fnidx);
 
-    uint8_t *hts_idx_get_meta(hts_idx_t *idx, int *l_meta);
-    void hts_idx_set_meta(hts_idx_t *idx, int l_meta, uint8_t *meta, int is_copy);
+
+/// Get extra index meta-data
+/** @param idx    The index
+    @param l_meta Pointer to where the length of the extra data is stored
+    @return Pointer to the extra data if present; NULL otherwise
+
+    Indexes (both .tbi and .csi) made by tabix include extra data about
+    the indexed file.  The returns a pointer to this data.  Note that the
+    data is stored exactly as it is in the index.  Callers need to interpret
+    the results themselves, including knowing what sort of data to expect;
+    byte swapping etc.
+*/
+uint8_t *hts_idx_get_meta(hts_idx_t *idx, uint32_t *l_meta);
+
+/// Set extra index meta-data
+/** @param idx     The index
+    @param l_meta  Length of data
+    @param meta    Pointer to the extra data
+    @param is_copy If not zero, a copy of the data is taken
+    @return 0 on success; -1 on failure (out of memory).
+
+    Sets the data that is returned by hts_idx_get_meta().
+
+    If is_copy != 0, a copy of the input data is taken.  If not, ownership of
+    the data pointed to by *meta passes to the index.
+*/
+int hts_idx_set_meta(hts_idx_t *idx, uint32_t l_meta, uint8_t *meta, int is_copy);
 
     int hts_idx_get_stat(const hts_idx_t* idx, int tid, uint64_t* mapped, uint64_t* unmapped);
     uint64_t hts_idx_get_n_no_coor(const hts_idx_t* idx);

@@ -1,6 +1,6 @@
 # Configure script for htslib, a C library for high-throughput sequencing data.
 #
-#    Copyright (C) 2015-2016 Genome Research Ltd.
+#    Copyright (C) 2015-2017 Genome Research Ltd.
 #
 #    Author: John Marshall <jm18@sanger.ac.uk>
 #
@@ -23,7 +23,7 @@
 # DEALINGS IN THE SOFTWARE.
 
 dnl Process this file with autoconf to produce a configure script
-AC_INIT([HTSlib], m4_esyscmd_s([make print-version]),
+AC_INIT([HTSlib], m4_esyscmd_s([make --no-print-directory print-version]),
         [samtools-help@lists.sourceforge.net], [], [http://www.htslib.org/])
 AC_PREREQ(2.63)  dnl This version introduced 4-argument AC_CHECK_HEADER
 AC_CONFIG_SRCDIR(hts.c)
@@ -49,14 +49,38 @@ AH_TOP([/* If you use configure, this file provides @%:@defines reflecting your
 AC_PROG_CC
 AC_PROG_RANLIB
 
-AC_SYS_LARGEFILE
+dnl Avoid chicken-and-egg problem where pkg-config supplies the
+dnl PKG_PROG_PKG_CONFIG macro, but we want to use it to check
+dnl for pkg-config...
+m4_ifdef([PKG_PROG_PKG_CONFIG], [PKG_PROG_PKG_CONFIG], [PKG_CONFIG=""])
 
 need_crypto=no
+pc_requires=
+static_LDFLAGS=
+static_LIBS='-lz -lm'
+private_LIBS=
+
+AC_ARG_ENABLE([bz2],
+  [AS_HELP_STRING([--disable-bz2],
+                  [omit support for BZ2-compressed CRAM files])],
+  [], [enable_bz2=yes])
+
+AC_ARG_ENABLE([gcs],
+  [AS_HELP_STRING([--enable-gcs],
+                  [support Google Cloud Storage URLs])],
+  [], [enable_gcs=check])
+
+AC_SYS_LARGEFILE
 
 AC_ARG_ENABLE([libcurl],
   [AS_HELP_STRING([--enable-libcurl],
                   [enable libcurl-based support for http/https/etc URLs])],
-  [], [enable_libcurl=no])
+  [], [enable_libcurl=check])
+
+AC_ARG_ENABLE([lzma],
+  [AS_HELP_STRING([--disable-lzma],
+                  [omit support for LZMA-compressed CRAM files])],
+  [], [enable_lzma=yes])
 
 AC_ARG_ENABLE([plugins],
   [AS_HELP_STRING([--enable-plugins],
@@ -82,6 +106,11 @@ AC_ARG_WITH([plugin-path],
    esac],
   [with_plugin_path=$with_plugin_dir])
 AC_SUBST([pluginpath], $with_plugin_path)
+
+AC_ARG_ENABLE([s3],
+  [AS_HELP_STRING([--enable-s3],
+                  [support Amazon AWS S3 URLs])],
+  [], [enable_s3=check])
 
 AC_MSG_CHECKING([shared library type])
 test -n "$host_alias" || host_alias=unknown-`uname -s`
@@ -120,18 +149,26 @@ Plugin support requires dynamic linking facilities from the operating system.
 Either configure with --disable-plugins or resolve this error to build HTSlib.])])
   # TODO Test whether this is required and/or needs tweaking per-platform
   LDFLAGS="$LDFLAGS -rdynamic"
+  static_LDFLAGS="$static_LDFLAGS -rdynamic"
+  case "$ac_cv_search_dlopen" in
+    -l*) static_LIBS="$static_LIBS $ac_cv_search_dlopen" ;;
+  esac
   AC_DEFINE([ENABLE_PLUGINS], 1, [Define if HTSlib should enable plugins.])
   AC_SUBST([PLUGIN_EXT])
   AC_DEFINE_UNQUOTED([PLUGIN_EXT], ["$PLUGIN_EXT"],
                      [Platform-dependent plugin filename extension.])
 fi
 
-save_LIBS=$LIBS
+AC_SEARCH_LIBS([log], [m], [],
+  [AC_MSG_ERROR([log() not found
+
+HTSLIB requires a working floating-point math library.
+FAILED.  This error must be resolved in order to build HTSlib successfully.])])
+
 zlib_devel=ok
 dnl Set a trivial non-empty INCLUDES to avoid excess default includes tests
 AC_CHECK_HEADER([zlib.h], [], [zlib_devel=missing], [;])
 AC_CHECK_LIB(z, inflate,  [], [zlib_devel=missing])
-LIBS=$save_LIBS
 
 if test $zlib_devel != ok; then
   AC_MSG_ERROR([zlib development files not found
@@ -143,6 +180,56 @@ Ubuntu Linux) or zlib-devel (on RPM-based Linux distributions or Cygwin)
 is installed.
 
 FAILED.  This error must be resolved in order to build HTSlib successfully.])
+fi
+
+if test "$enable_bz2" != no; then
+  bz2_devel=ok
+  AC_CHECK_HEADER([bzlib.h], [], [bz2_devel=missing], [;])
+  AC_CHECK_LIB([bz2], [BZ2_bzBuffToBuffCompress], [], [bz2_devel=missing])
+  if test $bz2_devel != ok; then
+    AC_MSG_ERROR([libbzip2 development files not found
+
+The CRAM format may use bzip2 compression, which is implemented in HTSlib
+by using compression routines from libbzip2 <http://www.bzip.org/>.
+
+Building HTSlib requires libbzip2 development files to be installed on the
+build machine; you may need to ensure a package such as libbz2-dev (on Debian
+or Ubuntu Linux) or bzip2-devel (on RPM-based Linux distributions or Cygwin)
+is installed.
+
+Either configure with --disable-bz2 (which will make some CRAM files
+produced elsewhere unreadable) or resolve this error to build HTSlib.])
+  fi
+dnl Unfortunately the 'bzip2' package-cfg module is not standard.
+dnl Redhat/Fedora has it; Debian/Ubuntu does not.
+  if test -n "$PKG_CONFIG" && "$PKG_CONFIG" --exists bzip2; then
+     pc_requires="$pc_requires bzip2"
+  else
+     private_LIBS="$private_LIBS -lbz2"
+  fi  
+  static_LIBS="$static_LIBS -lbz2"
+fi
+
+if test "$enable_lzma" != no; then
+  lzma_devel=ok
+  AC_CHECK_HEADER([lzma.h], [], [lzma_devel=missing], [;])
+  AC_CHECK_LIB([lzma], [lzma_easy_buffer_encode], [], [lzma_devel=missing])
+  if test $lzma_devel != ok; then
+    AC_MSG_ERROR([liblzma development files not found
+
+The CRAM format may use LZMA2 compression, which is implemented in HTSlib
+by using compression routines from liblzma <http://tukaani.org/xz/>.
+
+Building HTSlib requires liblzma development files to be installed on the
+build machine; you may need to ensure a package such as liblzma-dev (on Debian
+or Ubuntu Linux), xz-devel (on RPM-based Linux distributions or Cygwin), or
+xz (via Homebrew on macOS) is installed; or build XZ Utils from source.
+
+Either configure with --disable-lzma (which will make some CRAM files
+produced elsewhere unreadable) or resolve this error to build HTSlib.])
+  fi
+  pc_requires="$pc_requires liblzma"
+  static_LIBS="$static_LIBS -llzma"
 fi
 
 libcurl=disabled
@@ -167,9 +254,49 @@ or Cygwin) is installed.
 Either configure with --disable-libcurl or resolve this error to build HTSlib.])
        ;;
      esac])
-  need_crypto=yes
+dnl -lcurl is only needed for static linking if hfile_libcurl is not a plugin
+  if test "$libcurl" = enabled ; then
+    if test "$enable_plugins" != yes ; then
+      static_LIBS="$static_LIBS -lcurl"
+    fi
+  fi
 fi
 AC_SUBST([libcurl])
+
+gcs=disabled
+if test "$enable_gcs" != no; then
+  if test $libcurl = enabled; then
+    AC_DEFINE([ENABLE_GCS], 1, [Define if HTSlib should enable GCS support.])
+    gcs=enabled
+  else
+    case "$enable_gcs" in
+      check) AC_MSG_WARN([GCS support not enabled: requires libcurl support]) ;;
+      *) AC_MSG_ERROR([GCS support not enabled
+
+Support for Google Cloud Storage URLs requires libcurl support to be enabled
+in HTSlib.  Configure with --enable-libcurl in order to use GCS URLs.])
+      ;;
+    esac
+  fi
+fi
+AC_SUBST([gcs])
+
+s3=disabled
+if test "$enable_s3" != no; then
+  if test $libcurl = enabled; then
+    s3=enabled
+    need_crypto="$enable_s3"
+  else
+    case "$enable_s3" in
+      check) AC_MSG_WARN([S3 support not enabled: requires libcurl support]) ;;
+      *) AC_MSG_ERROR([S3 support not enabled
+
+Support for Amazon AWS S3 URLs requires libcurl support to be enabled
+in HTSlib.  Configure with --enable-libcurl in order to use S3 URLs.])
+      ;;
+    esac
+  fi
+fi
 
 CRYPTO_LIBS=
 if test $need_crypto != no; then
@@ -182,7 +309,10 @@ if test $need_crypto != no; then
         case "$ac_cv_search_HMAC" in
           -l*) CRYPTO_LIBS=$ac_cv_search_HMAC ;;
         esac],
-     [AC_MSG_ERROR([SSL development files not found
+     [case "$need_crypto" in
+     check) AC_MSG_WARN([S3 support not enabled: requires SSL development files])
+         s3=disabled ;;
+     *) AC_MSG_ERROR([SSL development files not found
 
 Support for AWS S3 URLs requires routines from an SSL library.  Building
 HTSlib with libcurl enabled requires SSL development files to be installed
@@ -191,10 +321,25 @@ libnss3-dev, or libssl-dev (on Debian or Ubuntu Linux, corresponding to the
 libcurl4-*-dev package installed), or openssl-devel (on RPM-based Linux
 distributions or Cygwin) is installed.
 
-Either configure with --disable-libcurl or resolve this error to build HTSlib.])])
+Either configure with --disable-s3 or resolve this error to build HTSlib.]) ;;
+       esac])
      LIBS=$save_LIBS])
+dnl Only need to add to static_LIBS if not building as a plugin
+  if test "$enable_plugins" != yes ; then
+     static_LIBS="$static_LIBS $CRYPTO_LIBS"
+  fi
 fi
+
+if test "$s3" = enabled ; then
+   AC_DEFINE([ENABLE_S3], 1, [Define if HTSlib should enable S3 support.])
+fi
+AC_SUBST([s3])
 AC_SUBST([CRYPTO_LIBS])
 
-AC_CONFIG_FILES(config.mk)
+AC_SUBST([pc_requires])
+AC_SUBST([private_LIBS])
+AC_SUBST([static_LDFLAGS])
+AC_SUBST([static_LIBS])
+
+AC_CONFIG_FILES([config.mk htslib.pc.tmp:htslib.pc.in])
 AC_OUTPUT
