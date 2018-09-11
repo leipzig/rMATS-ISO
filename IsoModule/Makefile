@@ -37,7 +37,7 @@ $(HTS_ALL):
 # (.text+0x20): undefined reference to `main'
 # collect2: error: ld returned 1 exit status
 $(BIN): $(OBJS)
-		$(CC) -shared $(LDFLAGS) $(OBJS) -o $@ $(LIB)
+		$(CC) $(LDFLAGS) $(OBJS) -o $@ $(LIB)
 
 $(GDB_DEBUG):
 		$(CC) $(DFLAGS) $(INCLUDE) $(SOURCE) $(DMARCRO) -o $@ $(LIB)
