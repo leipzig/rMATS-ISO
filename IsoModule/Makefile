@@ -2,7 +2,7 @@ CC      =	gcc
 CFLAGS  =	-Wall -O2 -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
 LDFLAGS =
 DFLAGS  =	-g -Wall
-HTSLIB_DIR = ./htslib-1.4.1
+HTSLIB_DIR = ./htslib
 HTSLIB  =   $(HTSLIB_DIR)/libhts.a
 LIB     =	$(HTSLIB) -lm -lz -lpthread
 COMP_LIB=	-lz
@@ -32,12 +32,9 @@ debug_iso_module: $(SOURCE) $(NOR_DEBUG)
 
 $(HTS_ALL):
 	cd $(HTSLIB_DIR); make;
-	
-# /usr/lib/../lib64/crt1.o: In function `_start':
-# (.text+0x20): undefined reference to `main'
-# collect2: error: ld returned 1 exit status
+
 $(BIN): $(OBJS)
-		$(CC) $(LDFLAGS) $(OBJS) -o $@ $(LIB)
+		$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@ $(LIB)
 
 $(GDB_DEBUG):
 		$(CC) $(DFLAGS) $(INCLUDE) $(SOURCE) $(DMARCRO) -o $@ $(LIB)

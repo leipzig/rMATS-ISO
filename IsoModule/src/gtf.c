@@ -4,7 +4,7 @@
 #include "gtf.h"
 #include "utils.h"
 #include "splice_graph.h"
-#include "../htslib-1.4.1/htslib/sam.h"
+#include "../htslib/htslib/sam.h"
 
 extern int gen_trans(bam1_t *b, trans_t *t, int exon_min);
 
