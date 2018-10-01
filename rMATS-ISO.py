@@ -265,7 +265,7 @@ def ISO_classifyify(para, cur_dir):
     utils.exec_cmd(sys.stderr, 'ISOClassify', 'mkdir {}/ISO_classify 2> /dev/null'.format(para.out_dir))
     para.module_type_summary = '{}/ISO_classify/ISO_module_type_summary.txt'.format(para.out_dir)
     para.module_type = '{}/ISO_classify/ISO_module_type.txt'.format(para.out_dir)
-    cmd = 'python {}/ISOClassify/IsoClass.py {} {} {}'.format(cur_dir, para.module_iso_exon, para.module_type_summary,
+    cmd = 'python IsoClass.py {} {} {}'.format(para.module_iso_exon, para.module_type_summary,
                                                               para.module_type)
     utils.exec_cmd(sys.stderr, 'ISOClassify', cmd)
     return
@@ -275,7 +275,7 @@ def ISO_plot(para, cur_dir):
     utils.exec_cmd(sys.stderr, 'ISOPlot', 'mkdir {}/ISO_plot 2> /dev/null'.format(para.out_dir))
     para.module_coor = '{}/ISO_classify/ISO_module_coor.txt'.format(para.out_dir)
     para.module_gene = '{}/ISO_classify/ISO_module_gene.txt'.format(para.out_dir)
-    cmd = 'python {}/ISOPlot/IsoPlot.py {} {} {} {}'.format(cur_dir, para.EM_out, para.module_iso_exon,
+    cmd = 'python IsoPlot.py {} {} {} {}'.format(para.EM_out, para.module_iso_exon,
                                                             para.module_coor,
                                                             para.module_gene)
     utils.exec_cmd(sys.stderr, 'IsoPlot', cmd)

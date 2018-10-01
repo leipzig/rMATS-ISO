@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #this script organizes the exons coordinates for sashimi plots
 
 import re,os,sys
