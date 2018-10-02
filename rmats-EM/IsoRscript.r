@@ -1,5 +1,7 @@
 #!/usr/bin/env Rscript
 
+cat("hi")
+
 # Shihao Shen 05/22/18
 # This is the script to input data into rMATS_ISO R function
 args = commandArgs(trailingOnly=TRUE)
