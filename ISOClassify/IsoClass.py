@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 #this script classifies the ASM modules
 #Shihao Shen. 05/18/18
 
@@ -37,9 +35,9 @@ for i in ilines:
 			while k < exon_count-1:
 				first=re.findall('[^,]+',elements[k])
 				second=re.findall('[^,]+',elements[k+1])
-				left=max([left,first[1]]);				
+				left=max([left,int(first[1])]);				
 				#overlapped exons
-				if left > second[0]:
+				if left > int(second[0]):
 					if not(k in exon_newindex_dic):
 						exon_newindex_dic[k]=str(exon_newindex)+exon_add;
 					exon_add+='A'
