@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #this script classifies the ASM modules
 #Shihao Shen. 05/18/18
